@@ -211,6 +211,8 @@ bot.add_handler(CallbackQueryHandler(button_callback))
 
 if __name__ == "__main__":
     if os.getenv("RENDER"):
+        # Инициализируем приложение перед настройкой вебхука
+        bot.initialize()  # Добавляем эту строку
         bot.run_webhook(
             listen="0.0.0.0",
             port=PORT,
@@ -219,4 +221,5 @@ if __name__ == "__main__":
         )
         uvicorn.run(app, host="0.0.0.0", port=PORT)
     else:
+        bot.initialize()  # Инициализируем также для режима polling
         bot.run_polling(allowed_updates=Update.ALL_TYPES)
