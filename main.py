@@ -211,15 +211,22 @@ bot.add_handler(CallbackQueryHandler(button_callback))
 
 if __name__ == "__main__":
     if os.getenv("RENDER"):
-        # Инициализируем приложение перед настройкой вебхука
-        bot.initialize()  # Добавляем эту строку
-        bot.run_webhook(
-            listen="0.0.0.0",
-            port=PORT,
-            url_path=f"/webhook/{TELEGRAM_TOKEN}",
-            webhook_url=f"{WEBHOOK_URL}"
-        )
-        uvicorn.run(app, host="0.0.0.0", port=PORT)
+        logger.info("Запуск в режиме вебхука на Render")
+        try:
+            bot.initialize()  # Инициализация Application
+            logger.info("Application успешно инициализировано")
+            bot.run_webhook(
+                listen="0.0.0.0",
+                port=PORT,
+                url_path=f"/webhook/{TELEGRAM_TOKEN}",
+                webhook_url=f"{WEBHOOK_URL}"
+            )
+            logger.info(f"Вебхук запущен на {WEBHOOK_URL}")
+            uvicorn.run(app, host="0.0.0.0", port=PORT)
+        except Exception as e:
+            logger.error(f"Ошибка при запуске вебхука: {e}")
+            raise
     else:
-        bot.initialize()  # Инициализируем также для режима polling
+        logger.info("Запуск в режиме polling")
+        bot.initialize()  # Инициализация для polling
         bot.run_polling(allowed_updates=Update.ALL_TYPES)
