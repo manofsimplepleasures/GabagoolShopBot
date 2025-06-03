@@ -1,3 +1,4 @@
+```python
 import logging
 import os
 from datetime import datetime, timedelta
@@ -189,12 +190,16 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             await query.message.reply_text("😔 Товар не найден")
 
 # FastAPI эндпоинт для вебхуков
-@app.post(f"/{TELEGRAM_TOKEN}")
-async def webhook(request: Request):
+@app.post("/webhook/{token}")
+async def webhook(token: str, request: Request):
     """Обработка входящих обновлений от Telegram."""
-    update = Update.de_json(await request.json(), bot)
-    await bot.process_update(update)
-    return {"status": "ok"}
+    if token == TELEGRAM_TOKEN:
+        update = Update.de_json(await request.json(), bot)
+        await bot.process_update(update)
+        return {"status": "ok"}
+    else:
+        logger.error(f"Неверный токен вебхука: {token}")
+        return {"status": "error", "message": "Invalid token"}
 
 # Добавление обработчиков
 bot.add_handler(CommandHandler("start", start))
@@ -209,9 +214,10 @@ if __name__ == "__main__":
         bot.run_webhook(
             listen="0.0.0.0",
             port=PORT,
-            url_path=TELEGRAM_TOKEN,
-            webhook_url=WEBHOOK_URL
+            url_path=f"/webhook/{TELEGRAM_TOKEN}",
+            webhook_url=f"{WEBHOOK_URL}/webhook/{TELEGRAM_TOKEN}"
         )
         uvicorn.run(app, host="0.0.0.0", port=PORT)
     else:
         bot.run_polling(allowed_updates=Update.ALL_TYPES)
+```
