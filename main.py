@@ -1,4 +1,3 @@
-```python
 import logging
 import os
 from datetime import datetime, timedelta
@@ -220,4 +219,3 @@ if __name__ == "__main__":
         uvicorn.run(app, host="0.0.0.0", port=PORT)
     else:
         bot.run_polling(allowed_updates=Update.ALL_TYPES)
-```
