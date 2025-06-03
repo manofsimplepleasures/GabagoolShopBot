@@ -3,7 +3,7 @@ services:
     name: gabagoolshopbot
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn -k uvicorn.workers.UvicornWorker main:app
+    startCommand: python app.py
     envVars:
       - key: TELEGRAM_TOKEN
         sync: false
