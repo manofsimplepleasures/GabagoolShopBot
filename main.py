@@ -1,5 +1,6 @@
 import logging
 import os
+import urllib.parse
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 
@@ -173,7 +174,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         
         if product:
             message = (
-                f"🎨 {product['name']}\n\n"
+                f"🎤 {product['name']}\n\n"
                 f"💰 Цена: {product.get('price', 'Нет данных')} ₽\n"
                 f"📦 В наличии: {product.get('stock', 0)} шт.\n\n"
                 f"🔗 Ссылка: {product.get('url', STORE_URL)}"
@@ -186,35 +187,35 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             else:
                 await query.message.reply_text(message)
         else:
-            await query.message.reply_text("😔 Товар не найден")
+            await query.message.reply_text("Товар не найден")
 
 # FastAPI эндпоинт для вебхуков
-@app.post("/webhook/{token}")
+@app.post("/webhook/{token:path}")
 async def webhook(token: str, request: Request):
-    """Обработка входящих обновлений от Telegram."""
-    if token == TELEGRAM_TOKEN:
+    """Обработка входящих обновлений от Telegram"""
+    decoded_token = urllib.parse.unquote(token)  # Декодируем %3A и другие символы
+    if decoded_token == TELEGRAM_TOKEN:
         update = Update.de_json(await request.json(), bot)
         await bot.process_update(update)
         return {"status": "ok"}
     else:
-        logger.error(f"Неверный токен вебхука: {token}")
+        logger.error(f"Неверный токен вебхука: {decoded_token}")
         return {"status": "error", "message": "Invalid token"}
 
 # Добавление обработчиков
 bot.add_handler(CommandHandler("start", start))
 bot.add_handler(CommandHandler("help", help_command))
 bot.add_handler(CommandHandler("store", store))
-bot.add_handler(CommandHandler("catalog", catalog))
+bot.add_handler(CommandHandler("products", catalog))
 bot.add_handler(CallbackQueryHandler(button_callback))
 
-# Запуск приложения
 if __name__ == "__main__":
-    if os.getenv("RENDER"):  # Проверка, что мы на Render
+    if os.getenv("RENDER"):
         bot.run_webhook(
             listen="0.0.0.0",
             port=PORT,
             url_path=f"/webhook/{TELEGRAM_TOKEN}",
-            webhook_url=f"{WEBHOOK_URL}/webhook/{TELEGRAM_TOKEN}"
+            webhook_url=f"{WEBHOOK_URL}"
         )
         uvicorn.run(app, host="0.0.0.0", port=PORT)
     else:
