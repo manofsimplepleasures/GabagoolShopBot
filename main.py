@@ -14,7 +14,7 @@ from telegram.ext import (
     ContextTypes,
     ApplicationBuilder,
 )
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 import uvicorn
 
 # Настройка логирования
@@ -192,6 +192,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 # FastAPI эндпоинт для вебхуков
 @app.post("/webhook/{token:path}")
 async def webhook(token: str, request: Request):
+    """Обработка входящих обновлений от Telegram"""
     logger.info(f"Получен запрос на вебхук с токеном: {token}")
     decoded_token = urllib.parse.unquote(token)
     logger.info(f"Декодированный токен: '{decoded_token}'")
@@ -201,16 +202,17 @@ async def webhook(token: str, request: Request):
             update = Update.de_json(await request.json(), bot)
             if update is None:
                 logger.error("Не удалось декодировать обновление от Telegram")
-                return {"status": "error", "message": "Invalid update"}
+                raise HTTPException(status_code=400, detail="Invalid update")
             await bot.process_update(update)
             logger.info("Обновление успешно обработано")
             return {"status": "ok"}
         except Exception as e:
             logger.error(f"Ошибка обработки обновления: {e}")
-            return {"status": "error", "message": str(e)}
+            raise HTTPException(status_code=500, detail=f"Error processing update: {str(e)}")
     else:
         logger.error(f"Неверный токен вебхука: {decoded_token}")
-        return {"status": "error", "message": "Invalid token"}
+        raise HTTPException(status_code=401, detail="Invalid token")
+
 # Добавление обработчиков
 bot.add_handler(CommandHandler("start", start))
 bot.add_handler(CommandHandler("help", help_command))
