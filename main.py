@@ -1,3 +1,4 @@
+```python
 import logging
 import os
 from datetime import datetime, timedelta
@@ -11,7 +12,10 @@ from telegram.ext import (
     CallbackQueryHandler,
     CommandHandler,
     ContextTypes,
+    ApplicationBuilder,
 )
+from fastapi import FastAPI, Request
+import uvicorn
 
 # Настройка логирования
 logging.basicConfig(
@@ -25,6 +29,8 @@ load_dotenv()
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 OZON_CLIENT_ID = os.getenv('OZON_CLIENT_ID')
 OZON_API_KEY = os.getenv('OZON_API_KEY')
+PORT = int(os.getenv('PORT', 10000))
+WEBHOOK_URL = os.getenv('WEBHOOK_URL')
 
 # Проверка наличия необходимых переменных окружения
 if not all([TELEGRAM_TOKEN, OZON_CLIENT_ID, OZON_API_KEY]):
@@ -35,7 +41,6 @@ if not all([TELEGRAM_TOKEN, OZON_CLIENT_ID, OZON_API_KEY]):
 OZON_API_URL = "https://api-seller.ozon.ru"
 STORE_URL = "https://www.ozon.ru/seller/gabagool"
 ITEMS_PER_PAGE = 5
-PORT = int(os.getenv('PORT', 10000))
 
 # Кэш для хранения данных товаров
 class ProductCache:
@@ -57,6 +62,12 @@ class ProductCache:
         return self.cache
 
 product_cache = ProductCache()
+
+# FastAPI приложение
+app = FastAPI()
+
+# Инициализация Telegram бота
+bot = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
 
 async def fetch_ozon_products() -> List[Dict]:
     """Получение данных о товарах через Ozon API"""
@@ -178,34 +189,31 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         else:
             await query.message.reply_text("😔 Товар не найден")
 
-def main() -> None:
-    """Запуск бота"""
-    try:
-        application = Application.builder().token(TELEGRAM_TOKEN).build()
+# FastAPI эндпоинт для вебхуков
+@app.post(f"/{TELEGRAM_TOKEN}")
+async def webhook(request: Request):
+    """Обработка входящих обновлений от Telegram."""
+    update = Update.de_json(await request.json(), bot)
+    await bot.process_update(update)
+    return {"status": "ok"}
 
-        # Регистрация обработчиков команд
-        application.add_handler(CommandHandler("start", start))
-        application.add_handler(CommandHandler("help", help_command))
-        application.add_handler(CommandHandler("store", store))
-        application.add_handler(CommandHandler("catalog", catalog))
-        
-        # Регистрация обработчика кнопок
-        application.add_handler(CallbackQueryHandler(button_callback))
+# Добавление обработчиков
+bot.add_handler(CommandHandler("start", start))
+bot.add_handler(CommandHandler("help", help_command))
+bot.add_handler(CommandHandler("store", store))
+bot.add_handler(CommandHandler("catalog", catalog))
+bot.add_handler(CallbackQueryHandler(button_callback))
 
-        # Запуск бота
-        if os.getenv('RENDER'):  # Проверка, запущен ли код на Render
-            application.run_webhook(
-                listen='0.0.0.0',
-                port=PORT,
-                url_path=TELEGRAM_TOKEN,
-                webhook_url=f'https://gabagoolshopbot.onrender.com/{TELEGRAM_TOKEN}'
-            )
-        else:
-            application.run_polling()
-
-    except Exception as e:
-        logger.error(f"Ошибка при запуске бота: {e}")
-        raise
-
-if __name__ == '__main__':
-    main()
+# Запуск приложения
+if __name__ == "__main__":
+    if os.getenv("RENDER"):  # Проверка, что мы на Render
+        bot.run_webhook(
+            listen="0.0.0.0",
+            port=PORT,
+            url_path=TELEGRAM_TOKEN,
+            webhook_url=WEBHOOK_URL
+        )
+        uvicorn.run(app, host="0.0.0.0", port=PORT)
+    else:
+        bot.run_polling(allowed_updates=Update.ALL_TYPES)
+```
